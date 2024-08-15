@@ -1,0 +1,59 @@
+
+---
+        - hosts: sssd
+          become: yes
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars:
+                - rhv:  ansible_distribution
+
+          tasks:
+
+#          - meta: end_play
+#            when: ansible_distribution != "RedHat"
+
+          - name: taking backup of sssd.conf file
+            copy:
+                src: /etc/sssd/sssd.conf
+                dest: /etc/sssd/sssd.conf-{{ansible_date_time.iso8601_basic_short}}
+                remote_src: yes
+
+          - name: copying new sssd.conf file
+            copy:
+                    src: sssd.conf
+                    dest: /etc/sssd/
+                    mode: '0600'
+
+          - name: providing local group access
+            command: 'realm permit -g group1 -g group2 -g group3'
+#            register: command_output
+
+          - name: delete sssd cache
+            block:
+            - name: removing db file
+              file:
+                      state: absent
+                      path: /var/lib/sss/db/
+
+            - name: creating db file
+              file:
+                      path: /var/lib/sss/db
+                      state: directory
+                      owner: sssd
+                      group: sssd
+                      mode: 0700
+
+          - name: restart sssd service
+            service:
+                    name: sssd
+                    state: restarted
+
+          - name: get realm output
+            command: realm list
+            register: cmd_opt
+
+          - debug:
+                 msg: "{{ cmd_opt.stdout_lines }}"

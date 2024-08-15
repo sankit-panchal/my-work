@@ -1,0 +1,43 @@
+---
+        - hosts: hpc
+          become: yes
+          become_method: sudo
+#          gather_facts: no
+          vars_files:
+                  - .user_creds
+
+          tasks:
+
+          - name: Taking backup of auto.sc.cifs original file
+            copy:
+                    src: /etc/auto.sc.cifs
+                    dest: /etc/auto.sc.cifs-{{ansible_date_time.date}}
+                    remote_src: yes
+
+          - name: Replace new auto.sc.cifs file
+            copy:
+                    src: /sc/kzd/depot/conf/auto.sc.cifs
+                    dest: /etc/auto.sc.cifs
+                    owner: root
+                    group: root
+                    mode: '0644'
+                    remote_src: yes
+
+          - name: Restart autofs service
+            service:
+                    name: autofs
+                    state: restarted
+
+          - name: pause for 2 seconds
+            pause:
+                    seconds: 2
+
+#          - name: Check for mounted share and mount them back
+#            script: check_autofs.sh
+
+          - name: Get service status
+            shell: 'systemctl status autofs | grep Active'
+            register: cmnd_out
+
+          - debug:
+                  msg: "{{ cmnd_out.stdout_lines }}"

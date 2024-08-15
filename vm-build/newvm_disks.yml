@@ -1,0 +1,31 @@
+---
+newvms:
+- {
+    new_vm_name: server_hostname,
+    new_vm_datastore: datastore_name,
+    swap_disk: no
+    app_disk: yes
+    app_disk_info:
+            - {
+                    scsi_controller: 1
+                    size_gb: 10
+                    type: thin
+                    state: present
+                    scsi_type: 'paravirtual'
+            }
+    db_disk: no
+  }
+- {
+    template_name: template_name,
+    #template_datacenter: Asgard,
+    #template_disksize: 100,
+    new_vm_name: server_hostname_2,
+    #new_vm_datacenter: Asgard,
+    #new_vm_cluster : Bifrost,
+    new_vm_folder: /OS_TEMPLATES,
+    new_vm_datastore: "datastore_name",
+    new_vm_cpu: 4,
+    new_vm_cpu_cores_per_socket: 2,
+    new_vm_memory_mb: 16384,
+    new_vm_network: "network_vlan"
+  }

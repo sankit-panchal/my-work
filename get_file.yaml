@@ -1,0 +1,22 @@
+
+---
+        - hosts: secure
+          become: yes
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars:
+                - rhv:  ansible_distribution
+
+          tasks:
+
+#          - meta: end_play
+#            when: ansible_distribution != "RedHat"
+
+          - name: Get a file
+            fetch:
+                    src: /var/log/secure
+                    dest: /home/username/dmz-secure-log/secure-{{ inventory_hostname }}
+                    flat: yes

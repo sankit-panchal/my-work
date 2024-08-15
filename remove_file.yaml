@@ -1,0 +1,20 @@
+
+---
+        - hosts: file
+          become: yes
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars_files:
+                - vars/file.yml
+
+          tasks:
+                - name: remove files
+                  file:
+                        path: "{{ item }}"
+                        state: absent
+                  with_items: "{{ file_name }}"
+                  when: ansible_distribution_major_version != "6"
+

@@ -1,0 +1,26 @@
+
+---
+        - hosts: sssd
+          become: yes
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars:
+                - rhv:  ansible_distribution
+
+          tasks:
+
+#          - meta: end_play
+#            when: ansible_distribution != "RedHat"
+
+          - name: Execute script
+            script: restart_sssd_update.sh
+
+          - name: Get service status
+            shell: 'systemctl status sssd | grep Active'
+            register: cmnd_out
+
+          - debug:
+                  msg: "{{ cmnd_out.stdout_lines }}"

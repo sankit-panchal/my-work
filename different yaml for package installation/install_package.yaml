@@ -1,0 +1,23 @@
+
+---
+        - hosts: package
+          become: yes
+          become_method: sudo
+          gather_facts: yes
+          vars_files:
+                - vars/package.yml
+                - .user_creds
+
+          tasks:
+                - name: Install rpm package
+                  yum:
+                        name: "{{ package_name }}"
+                        state: present
+                  when: ansible_distribution == "RedHat"
+
+                - name: Install deb package
+                  apt:
+                        name: "{{ package_name }}"
+                        state: present
+                        update_cache: yes
+                  when: ansible_distribution == "Ubuntu"

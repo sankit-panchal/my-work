@@ -1,0 +1,42 @@
+
+---
+        - hosts: dba
+          become: yes
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars:
+                - rhv:  ansible_distribution
+
+          tasks:
+
+#          - meta: end_play
+#            when: ansible_distribution != "RedHat"
+
+          - name: Take backup of auto.direct file
+            copy:
+                    src: /etc/auto.direct
+                    dest: /home/user/auto.direct-{{ansible_date_time.iso8601_basic_short}}
+                    remote_src: yes
+
+          - name: Add DBExport line
+            shell: echo -e '/DBExports\t\tnfs-server:/app/oramigrations' >> /etc/auto.direct
+
+          - name: Restart autofs service
+            service:
+                    name: autofs
+                    state: restarted
+
+          - name: Wait for 5 sec
+            pause:
+                    seconds: 5
+
+          - name: Check DBexport moutn
+#            command: /sbin/sysctl -p /etc/sysctl.d/99-zts-petcare.conf
+            shell: df -hT /DBExports
+            register: command_output
+
+          - debug:
+                 msg: "{{ command_output.stdout_lines }}"

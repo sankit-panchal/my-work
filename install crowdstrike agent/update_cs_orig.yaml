@@ -1,0 +1,51 @@
+
+---
+      - hosts: cs
+        become: yes
+        gather_facts: yes
+
+        tasks:
+          - name: Copy CS script to destination server
+            copy:
+                src: falcon-config.sh
+                dest: /tmp/falcon-config.sh
+#                register: script_copied
+
+          - name: Copy RPM file
+            copy:
+                src: /mnt/crowdstrike/Falcon_Linux_{{ ansible_facts['distribution_major_version'] }}.x86_64.rpm
+                dest: /tmp/
+            when: ansible_facts['distribution'] == "RedHat"
+
+          - name: Copy RPM file
+            copy:
+                src: /mnt/crowdstrike/Falcon_Ubuntu.deb
+                dest: '/tmp/'
+            when: ansible_facts['distribution'] == "Ubuntu"
+
+          - name: Remove existing package
+            yum:
+                name: falcon-sensor
+                state: absent
+
+          - name: Install Packages
+            yum:
+                name: /tmp/Falcon_Linux_{{ ansible_facts['distribution_major_version'] }}.x86_64.rpm
+                state: present
+#            warn: false
+            when: ansible_facts['distribution'] == "RedHat"
+
+          - name: Install Packages
+            apt:
+                deb: /tmp/Falcon_Ubuntu.deb
+                state: present
+            when: ansible_facts['distribution'] == "Ubuntu"
+
+
+          - name: Configure CS agent
+            command: sh /tmp/falcon-config.sh
+#            when: script_copied.exists
+            register: command_output
+
+          - debug:
+                msg: "{{ command_output.stdout_lines }}"

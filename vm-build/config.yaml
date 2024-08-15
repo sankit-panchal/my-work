@@ -1,0 +1,4 @@
+---
+vmware_host: vcenter_ip_address
+vmware_user: "vcenter_login_username"
+#vmware_dc: "vcenter_dc_name"

@@ -1,0 +1,64 @@
+---
+        - hosts: sssd
+          become: yes
+          serial: 10
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars:
+                - rhv:  ansible_distribution
+
+          tasks:
+
+#          - meta: end_play
+#            when: ansible_distribution != "RedHat"
+
+          - name: Take backup of sssd.conf file
+            copy:
+                src: /etc/sssd/sssd.conf
+                dest: /etc/sssd/sssd.conf-{{ansible_date_time.iso8601_basic_short}}
+                remote_src: yes
+
+          - name: Check if ad_site is present or not
+            lineinfile:
+                    path: /etc/sssd/sssd.conf
+                    regexp: '^ad_site = kzd'
+                    state: absent
+            check_mode: yes
+            changed_when: false
+            register: out
+
+          - when: not out.found
+            block:
+            - name: Update sssd.conf file
+              command: chdir=/etc/sssd/ {{ item }}
+              with_items:
+                    - sed -i '/^ad_domain*/a ad_site = kzd' sssd.conf
+
+            - name: Remove db file
+              file:
+                      state: absent
+                      path: /var/lib/sss/db/
+
+            - name: Create db file
+              file:
+                      path: /var/lib/sss/db
+                      state: directory
+                      owner: sssd
+                      group: sssd
+                      mode: 0700
+
+            - name: Restart sssd service
+              service:
+                    name: sssd
+                    state: restarted
+
+          - name: Get service status
+            shell: 'systemctl status sssd | grep Active'
+            register: cmnd_out
+
+          - debug:
+                  msg: "{{ cmnd_out.stdout_lines }}"
+

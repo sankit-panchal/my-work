@@ -1,0 +1,10 @@
+---
+vmware:
+            ip_address: server_ip_address
+            gateway_address: server_ip_address_gw
+            dns_address: dns_address
+            netmask: server_ip_address_nm
+            memory_mb: 8192
+            name: server_hostname
+            num_cpus: 4
+            port_group: "network_vlan"

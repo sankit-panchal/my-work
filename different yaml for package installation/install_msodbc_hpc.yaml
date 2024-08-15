@@ -1,0 +1,55 @@
+---
+        - hosts: hpc
+          become: yes
+          gather_facts: yes
+          vars_prompt:
+                  - name: "ansible_sudo_pass"
+                    prompt: "Sudo Password"
+                    private: yes
+
+          tasks:
+                  - meta: end_host
+                    when: ansible_distribution != "RedHat"
+
+                  - when: ansible_distribution_major_version == "7"
+                    block:
+                            - name: Check if repo is present or not in RHEL7
+                              stat:
+                                      path: /etc/yum.repos.d/internal_repo_file_name.repo
+                              register: file_data
+
+                            - name: Install repo file if missing in RHEL7
+                              yum_repository:
+                                      name: name_of_repo
+                                      description: description_of_repo
+                                      file: internal_repo_file_name
+                                      baseurl: https://url
+                                      gpgcheck: no
+                                      enabled: yes
+                                      sslverify: no
+                              # easy way if repo file is present        
+                              # shell: curl url_to_repofile.repo > /etc/yum.repos.d/internal_repo_file_name.repo
+                              when: not file_data.stat.exists
+
+                            - name: Install msodbc package in RHEL7
+                              yum:
+                                      name:
+                                              #- msodbcsql18
+                                              #- mssql-tools18
+                                              - msodbcsql17
+                                              - mssql-tools
+                                      state: present
+                              environment:
+                                      ACCEPT_EULA: "Y"
+
+                  - when: ansible_distribution_major_version == "8"
+                    block: 
+                    ## SAME WAY FOR RHEL 8 ##
+
+                  - name: Check installed package
+                    #shell: 'rpm -qa | egrep "msodbcsql18|mssql-tools18"'
+                    shell: 'rpm -qa | egrep "msodbcsql17|mssql-tools"'
+                    register: cmnd_out
+
+                  - debug:
+                          msg: "{{ cmnd_out.stdout_lines }}"

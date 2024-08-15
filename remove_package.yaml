@@ -1,0 +1,24 @@
+
+---
+        - hosts: package
+          become: yes
+          gather_facts: yes
+          become_method: sudo
+          vars_files:
+                - vars/package.yml
+                - .user_creds
+
+
+          tasks:
+                - name: Remove rpm package
+                  yum:
+                        name: "{{ package_name }}"
+                        state: absent
+                  when: ansible_distribution == "RedHat"
+
+                - name: Remove deb package
+                  apt:
+                        name: "{{ package_name }}"
+                        state: absent
+                        update_cache: yes
+                  when: ansible_distribution == "Ubuntu"

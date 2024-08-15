@@ -1,0 +1,133 @@
+---
+- name: Create a VM from a template-2
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+          - config.yaml
+          - .secret_key
+          - newvm_info.yml
+  tasks:
+
+  - set_fact:
+      num_cpu_cores_per_socket: "{{ item.new_vm_cpu | int/2 }}"
+    loop: "{{ newvms }}"
+
+  - name: Clone the template-2
+    vmware_guest:
+      hostname: "{{ vmware_host }}"
+      username: "{{ vmware_user }}"
+      password: "{{ vmware_password }}"
+      validate_certs: False
+      name: "{{ item.new_vm_name }}"
+      template: "{{ item.template_name }}"
+      datacenter: "{{ new_vm_datacenter }}"
+      folder: "{{ item.new_vm_folder }}"
+      state: poweredon
+      cluster: "{{ new_vm_cluster }}"
+      # wait_for_ip_address: yes
+      hardware:
+        boot_firmware: efi
+        memory_mb: "{{ item.new_vm_memory_mb }}"
+        num_cpus: "{{ item.new_vm_cpu }}"
+        num_cpu_cores_per_socket: "{{ num_cpu_cores_per_socket | int }}"
+        #scsi: paravirtual
+      networks:
+      - name: "{{ item.new_vm_network }}"
+        start_connected: yes
+        #connected: yes
+           #mac: "{{ vmware.mac_address  }}"
+           #ip: "{{ vmware.ip_address }}"
+           #netmask: "{{ vmware.netmask }}"
+        device_type: vmxnet3
+        type: static
+        #delegate_to: localhost
+        #register: deploy_vm
+        #throttle: 5
+    delegate_to: localhost
+    register: vm_deploy
+    loop: "{{ newvms }}"
+
+  - name: Gather new vm info
+    vmware_guest_disk_info:
+          hostname: "{{ vmware_host }}"
+          username: "{{ vmware_user }}"
+          password: "{{ vmware_password }}"
+          validate_certs: False
+          name: "{{ item.new_vm_name }}"
+          datacenter: "{{ new_vm_datacenter }}"
+    delegate_to: localhost
+    register: info_disk
+    loop: "{{ newvms }}"
+
+  - set_fact: 
+        disk: "{{ disk | default([]) + [{ 'size_kb': item.guest_disk_info['0'].capacity_in_kb, 'scsi_controller': item.guest_disk_info['0'].controller_bus_number, 'unit_number': item.guest_disk_info['0'].unit_number }] }}"
+#    with_dict: "{{ info_disk.guest_disk_info }}"
+    loop: "{{ info_disk.results }}"
+
+  - set_fact:
+          next_unit_number: "{{ item.guest_disk_info['0'].unit_number | int+1 }}"
+#    with_dict: "{{ info_disk.guest_disk_info }}"
+    loop: "{{ info_disk.results }}"
+
+#  - set_fact:
+#          swap_required: "{{ 'true' if item.swap_disk == 'yes' else 'false' }}"
+#    loop: "{{ newvms }}"
+
+  - name: Add Swap disk
+    vmware_guest_disk:
+      hostname: "{{ vmware_host }}"
+      username: "{{ vmware_user }}"
+      password: "{{ vmware_password }}"
+      validate_certs: False
+      name: "{{ item.new_vm_name }}"
+      datacenter: "{{ new_vm_datacenter }}"
+      disk:
+              - size_gb: "{{ item.swap_disk_info.size_gb }}"
+                scsi_controller: "{{ item.swap_disk_info.scsi_controller }}"
+                type: "{{ item.swap_disk_info.type }}"
+                scsi_type: "{{ item.swap_disk_info.scsi_type }}"
+                unit_number: "{{ next_unit_number }}"
+    delegate_to: localhost
+    when: "{{ item.swap_disk }} == True"
+    loop: "{{ newvms }}"
+
+  - name: Add App disk
+    vmware_guest_disk:
+      hostname: "{{ vmware_host }}"
+      username: "{{ vmware_user }}"
+      password: "{{ vmware_password }}"
+      validate_certs: False
+      name: "{{ item.0.new_vm_name }}"
+      datacenter: "{{ new_vm_datacenter }}"
+      disk:
+              - size_gb: "{{ item.1.size_gb['0'] }}"
+                scsi_controller: "{{ item.0.app_scsi_controller }}"
+                type: "{{ new_disk_type }}"
+                scsi_type: "{{ new_scsi_type }}"
+                unit_number: "{{ item.1.unit_number['0'] }}"
+    delegate_to: localhost
+    #with_dict: "{{ newvms.app_disk_info }}"
+    when: "{{ item.0.app_disk }} == True"
+    #loop: "{{ size_gb }}"
+    #loop: "{{ newvms|subelements('{{ app_disk_info.size_gb }}') }}"
+    with_subelements:
+            - "{{ newvms }}"
+            - app_disk_info
+
+  - name: Add DB disk
+    vmware_guest_disk:
+      hostname: "{{ vmware_host }}"
+      username: "{{ vmware_user }}"
+      password: "{{ vmware_password }}"
+      validate_certs: False
+      name: "{{ item.new_vm_name }}"
+      datacenter: "{{ new_vm_datacenter }}"
+      disk:
+              - size_gb: "{{ item.db_disk_info.size_gb }}"
+                scsi_controller: "{{ item.db_disk_info.scsi_controller }}"
+                type: "{{ new_disk_type }}"
+                scsi_type: "{{ new_scsi_type }}"
+                unit_number: "{{ next_unit_number }}"
+    delegate_to: localhost
+    when: "{{ item.db_disk }} == True"
+    loop: "{{ newvms }}"

@@ -1,0 +1,68 @@
+
+---
+      - hosts: cs
+        become: yes
+        gather_facts: yes
+        vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+
+        tasks:
+          - name: Copy CS script to destination server
+            copy:
+                src: falcon-config.sh
+                dest: /tmp/falcon-config.sh
+
+          - name: Copy RPM file for RHEL
+            copy:
+                src: /mnt/crowdstrike/Falcon_Linux_{{ ansible_facts['distribution_major_version'] }}.x86_64.rpm
+                dest: /tmp/
+            when: ansible_facts['distribution'] == "RedHat"
+
+          - name: Copy RPM file for Ubuntu
+            copy:
+                src: /mnt/crowdstrike/Falcon_Ubuntu.deb
+                dest: '/tmp/'
+            when: ansible_facts['distribution'] == "Ubuntu"
+
+
+          - name: Remove existing package from RHEL
+            yum:
+                name: falcon-sensor
+                state: absent
+            when: ansible_facts['distribution'] == "RedHat"
+
+          - name: Remove existing package from Ubuntu
+            apt:
+                name: falcon-sensor
+                state: absent
+            when: ansible_facts['distribution'] == "Ubuntu"
+
+          - name: Install CS Package in RHEL
+            yum:
+                name: /tmp/Falcon_Linux_{{ ansible_facts['distribution_major_version'] }}.x86_64.rpm
+                state: present
+            when: ansible_facts['distribution'] == "RedHat"
+
+          - name: Install CS Package in Ubuntu
+            apt:
+                deb: /tmp/Falcon_Ubuntu.deb
+                state: present
+            when: ansible_facts['distribution'] == "Ubuntu"
+
+          - name: Configure CS agent
+            command: sh /tmp/falcon-config.sh
+            register: command_output
+
+          - name: Remove the script
+            file:
+                state: absent
+                path: /tmp/falcon-config.sh
+            warn: false
+
+          - name: Remove package file
+            shell: "rm -rf /tmp/Falcon_*"
+
+          - debug:
+                msg: "{{ command_output.stdout_lines }}"

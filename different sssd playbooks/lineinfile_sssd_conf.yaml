@@ -1,0 +1,91 @@
+---
+        - hosts: sssd
+          become: yes
+          serial: 10
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+
+          tasks:
+
+          - name: Take backup of sssd.conf file
+            copy:
+                src: /etc/sssd/sssd.conf
+                dest: /etc/sssd/sssd.conf-{{ansible_date_time.iso8601_basic_short}}
+                remote_src: yes
+
+          - name: Insert line if not present
+            lineinfile:
+                    path: /etc/sssd/sssd.conf
+                    insertafter: '^access_provider '
+                    line: "ldap_refferals = false"
+                    firstmatch: yes
+                    state: present
+            register: ad_gpo_line
+
+          - name: Insert line if not present 2
+            lineinfile:
+                    path: /etc/sssd/sssd.conf
+                    insertafter: '^access_provider '
+                    line: "ignore_group_members = true"
+                    firstmatch: yes
+                    state: present
+            register: ad_gpo_line_2
+
+          - name: Insert line if not present 3
+            lineinfile:
+                    path: /etc/sssd/sssd.conf
+                    insertafter: '^access_provider '
+                    line: "ad_gpo_access_control = permissive"
+                    firstmatch: yes
+                    state: present
+            register: ad_gpo_line_3
+
+          #- debug:
+          #        var: ad_gpo_line
+
+          #- debug:
+          #        var: ad_gpo_line_2
+
+          #- debug:
+          #        var: ad_gpo_line_3
+
+          - when: (ad_gpo_line.changed == True) or (ad_gpo_line_2.changed == True) or (ad_gpo_line_3.changed == True)
+            block:
+#            - name: Update sssd.conf file
+#              command: chdir=/etc/sssd/ {{ item }}
+#              with_items:
+#                    - sed -i '/^access_provider*/a ad_gpo_access_control = permissive' sssd.conf
+#                    - sed -i '/^ad_gpo_access_control*/a ignore_group_members = true' sssd.conf
+#                    - sed -i '/^ignore_group_members*/a ldap_refferals = false' sssd.conf
+
+            - name: Remove db file
+              file:
+                      state: absent
+                      path: /var/lib/sss/db/
+
+            - name: Create db file
+              file:
+                      path: /var/lib/sss/db
+                      state: directory
+                      owner: sssd
+                      group: sssd
+                      mode: 0700
+
+            - name: Restart sssd service
+              service:
+                    name: sssd
+                    state: restarted
+
+            - name: Get group details
+              shell: "for i in `realm list | grep permitted-groups | awk -F: '{print $2}' | tr ', ' '\n'`;do getent group $i;echo '';done"
+
+          - name: Get service status
+            shell: 'systemctl status sssd | grep Active'
+            register: cmnd_out
+
+          - debug:
+                  msg: "{{ cmnd_out.stdout_lines }}"
+

@@ -1,0 +1,10 @@
+
+---
+        - hosts: hpc
+          gather_facts: no
+
+
+          tasks:
+
+                    - name: Execute command 1
+                      shell: getent group ad-group-name

@@ -1,0 +1,36 @@
+---
+- hosts: crowdstrike
+  become: yes
+  become_method: sudo
+  vars_files:
+          - .user_creds
+
+  tasks:
+
+          - name: check falconctl file present
+            stat:
+                    path: "/opt/CrowdStrike/falconctl"
+            register: file_data
+
+          - name: check service status
+            service_facts:
+
+          - name: get falcon status 1
+            debug:
+                    msg: "{{ ansible_hostname }} - Crowdstrike Installed and service is Running"
+            when:
+                    - file_data.stat.exists
+                    - ansible_facts.services['falcon-sensor.service'].state == 'running'
+
+          - name: get falcon status 2
+            debug:
+                    msg: "{{ ansible_hostname }} - Crowdstrike Installed and service is Not Running"
+            when:
+                    - file_data.stat.exists
+                    - ansible_facts.services['falcon-sensor.service'].state != 'running'
+
+          - name: get falcon status 3
+            debug:
+                    msg: "{{ ansible_hostname }} - Crowdstrike Not Installed"
+            when:
+                    - file_data.stat.exists is not defined

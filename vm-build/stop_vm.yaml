@@ -1,0 +1,20 @@
+---
+- name: Stop vm in vCenter
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+          - config.yaml
+          - .secret_key
+          - linux-gc-server.yaml
+  tasks:
+
+          
+          - name: Stop virtual machine
+            community.vmware.vmware_guest:
+                    validate_certs: false
+                    hostname: "{{ vmware_host }}"
+                    username: "{{ vmware_user }}"
+                    password: "{{ vmware_password }}"
+                    name: "{{ vmware.name }}"
+                    state: poweredoff
+                    force: True

@@ -1,0 +1,31 @@
+
+---
+        - hosts: oracle
+          become: yes
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars:
+                - rhv:  ansible_distribution
+
+          tasks:
+
+#          - meta: end_play
+#            when: ansible_distribution != "RedHat"
+
+#          - when: ansible_hostname.startswith('kzdlsc')
+#            block:
+                    - name: Execute command 1
+                      #            command: /sbin/sysctl -p /etc/sysctl.d/99-zts-petcare.conf
+                      #            shell: for line in `cat /etc/ntp.conf | grep ^pool`;do sed -i "s/$line/#$line/" /etc/ntp.conf;done
+                      #                      shell: cp /etc/auto.direct /etc/auto.direct-`date +%Y%m%d%H%M%S`
+                      shell: echo -e "/DBExports\t\tnfs-server:/app/oramigrations" >> /etc/auto.direct
+                      #                      register: command_output
+
+                      #                    - name: Execute command 2
+                      #                      shell: sed -i "/rhelrepos/d" /etc/auto.direct
+
+                      #                    - debug:
+                      #                         msg: "{{ command_output.stdout_lines }}"

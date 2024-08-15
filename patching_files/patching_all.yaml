@@ -1,0 +1,174 @@
+---
+- hosts: patching
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  #vars_prompt:
+  #- name: "ansible_sudo_pass"
+  #  prompt: "Sudo password"
+  #  private: yes
+  vars:
+  - mjv: ansible_distribution_major_version
+  vars_files:
+  - vars/change_no.yml
+  - .user_creds
+
+  tasks:
+
+    - when: ansible_distribution == "Ubuntu"
+      block:
+        - name: Sending certificates to ubuntu server ## Sendig local ubuntu repo server certs
+          copy:
+                  src: patching_files/certificates/
+                  dest: /usr/local/share/ca-certificates/
+                  force: no
+
+        - name: Starting autofs service on ubuntu ## serices required to start for ubuntu
+          service:
+            name: autofs.service
+            state: started
+            enabled: yes
+          when: ansible_hostname.startswith('kzd') or ansible_hostname.startswith('wsp') or ansible_hostname.startswith('svc')
+
+        - name: Pause for 5 seconds
+          pause:
+                  seconds: 5
+          when: ansible_hostname.startswith('kzd') or ansible_hostname.startswith('wsp') or ansible_hostname.startswith('svc')
+
+    - when: ansible_hostname.startswith('az')
+      block:
+        - name: Sending patching script file to azure servers ## main script to config repo and take backup
+          copy:
+                  src: patching_files/patching_script.sh
+                  dest: ~/patching_script.sh
+                  mode: 755
+
+        - name: Sending local repo files to azure ubuntu
+          copy:
+                  src: patching_files/localsources.list
+                  dest: /tmp/
+          when: ansible_distribution == "Ubuntu"
+
+        - name: Sending local repo files to azue Redhat
+          copy:
+                  src: patching_files/rhui-microsoft-azure-rhel{{ vars[mjv] }}.config
+                  dest: /tmp/
+          when: ansible_distribution == "RedHat"
+
+    - name: Gethering pre patching output
+      script: patching_files/patching_script.sh "{{ change_no }}"
+      ignore_errors: no
+
+    - name: Setting reboot flag
+      stat:
+              path: "/var/tmp/rebooted"
+      register: file_data
+
+    - when: file_data.stat.exists
+      block:
+        - name: Rebooting the server before patching
+          shell: sleep 2 && /sbin/shutdown -r now
+          ignore_errors: true
+          async: 300
+          poll: 0
+          register: serverreboot
+          
+        - name: Validating if server is up before patching
+          wait_for_connection:
+            connect_timeout: 20
+            sleep: 5
+            delay: 5
+            timeout: 600
+          when: serverreboot.changed == true
+
+    - when: ansible_distribution == "RedHat"
+      block:
+        - name: Checking packages for update on Redhat
+          yum:
+            list=updates
+          ignore_errors: true
+          environment:
+            ACCEPT_EULA: "Y"
+          changed_when: yumupdates.results | length > 0
+          register: yumupdates
+
+        - name: Number of packages going to update
+          debug:
+                  msg: "{{ yumupdates.results | length }} packages going to update on {{ ansible_hostname }}"
+
+        - name: Updating is in progress for Redhat
+          yum:
+            name: "*"
+            state: latest
+            skip_broken: true
+          environment:
+            ACCEPT_EULA: "Y"
+          register: instrpm
+
+    - when: ansible_distribution == "Ubuntu"
+      block:
+        - name: Checking packages for update on Ubuntu
+          shell: apt list --upgradable  | wc -l
+          register: list_updates
+          
+        - name: Number of packages going to update
+          debug:
+                  msg: "{{ list_updates.stdout_lines }} packages going to update on {{ ansible_hostname }}"
+
+        - name: Updating is in progress for Ubuntu
+          apt:
+            upgrade: dist
+            state: latest
+            update_cache: yes
+            force_apt_get: yes
+          register: instdeb
+
+        - name: Removing old kernel/non dependent packages from Ubuntu
+          apt:
+            autoremove: yes
+
+    - when: instrpm.changed == true or instdeb.changed == true
+      block:
+        - name: Rebooting the server after patching
+          shell: sleep 2 && /sbin/shutdown -r now
+          ignore_errors: true
+          async: 300
+          poll: 0
+          register: serverreboot2
+          
+        - name: Validate if server is up after patching
+          wait_for_connection:
+            connect_timeout: 20
+            sleep: 5
+            delay: 5
+            timeout: 600
+          when: serverreboot2.changed == true
+    
+    - when: ansible_distribution == "Ubuntu"
+      block:
+        - name: Starting autofs service on ubuntu
+          service:
+            name: autofs.service
+            state: started
+            enabled: yes
+          when: ansible_hostname.startswith('kzd') or ansible_hostname.startswith('wsp') or ansible_hostname.startswith('svc')
+
+        - name: Pause for 5 seconds
+          pause:
+                  seconds: 5
+          when: ansible_hostname.startswith('kzd') or ansible_hostname.startswith('wsp') or ansible_hostname.startswith('svc')
+
+    - name: Removing files from azure
+      file:
+              path: /tmp/zoetis.list
+              state: absent
+      when: ansible_hostname.startswith('az') and ansible_distribution == "Ubuntu"
+ 
+    - name: Gethering post patching output
+      script: patching_files/patching_script.sh
+      ignore_errors: no
+      when: file_data.stat.exists
+      register: post_check_output
+
+    - debug:
+            msg: "{{ post_check_output.stdout_lines }}"

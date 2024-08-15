@@ -1,0 +1,108 @@
+---
+ - hosts: patching
+   become: yes
+   gather_facts: yes
+   vars_prompt:
+        - name: "ansible_sudo_pass"
+          prompt: "Sudo password"
+          private: yes
+   vars_files:
+        - vars/change_no.yml
+
+   tasks:
+
+        - meta: end_host
+          when: ansible_distribution != "Ubuntu"
+
+        - name: Check and start autofs service if not up
+          service:
+                  name: autofs.service
+                  state: started
+                  enabled: yes
+
+        - name: Pause for 5 sec
+          pause:
+                  seconds: 5
+
+        - name: Gather pre check output
+          command: /mnt/scripts/patching_script.sh "{{ change_no }}"
+          ignore_errors: no
+
+        - name: Check for reboot flag
+          stat:
+               path: "/var/tmp/rebooted"
+          register: file_data
+
+          # - when: file_data.stat.exists
+          #block:
+          # - name: Reboot the server before patch
+          #   shell: sleep 5 && /sbin/shutdown -r now
+          #   ignore_errors: true
+          #   async: 300
+          #   poll: 0
+          #   register: serverreboot
+
+          # - name: Validate if server is up and able to access
+          #wait_for_connection:
+          #    connect_timeout: 20
+          #    sleep: 5
+          #    delay: 5
+          #    timeout: 300
+          #when: serverreboot.changed == true
+
+        - name: Check packages for updates
+          shell: apt-get -s dist-upgrade | grep upgraded
+          register: list_updates
+
+        - debug:
+                msg: "{{ list_updates.stdout_lines }}"
+
+        - when: ansible_distribution == "Ubuntu"
+          block:
+          - name: Update all packages to their latest version
+            apt:
+                upgrade: dist
+                state: latest
+                update_cache: yes
+                force_apt_get: yes
+                cache_valid_time: 3600
+            register: installed
+
+          - name: Remove old kernel/non dependent packages
+            apt:
+                    autoremove: yes
+
+#        - when: installed.changed == true
+#          block:
+        - name: Reboot the server after patch
+          shell: sleep 5 && /sbin/shutdown -r now
+          ignore_errors: true
+          async: 300
+          poll: 0
+          register: serverreboot2
+
+        - name: Validate if server is up and able to access
+          wait_for_connection:
+              connect_timeout: 20
+              sleep: 5
+              delay: 5
+              timeout: 300
+          when: serverreboot2.changed == true
+
+        - name: Check and start autofs service if not up
+          service:
+                  name: autofs.service
+                  state: started
+                  enabled: yes
+
+        - name: Pause for 5 sec
+          pause:
+                  seconds: 5
+
+        - name: Gather Post Check Output
+          command: /mnt/scripts/patching_script.sh
+          ignore_errors: no
+          register: post_check_output
+
+        - debug:
+                msg: "{{ post_check_output.stdout_lines }}"

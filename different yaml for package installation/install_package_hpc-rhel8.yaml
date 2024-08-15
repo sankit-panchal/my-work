@@ -1,0 +1,28 @@
+
+---
+        - hosts: hpc
+          become: yes
+          become_method: sudo
+          gather_facts: yes
+          vars_files:
+                - vars/package.yml
+                - .user_creds
+
+          tasks:
+
+                - meta: end_host
+                  when: ansible_distribution_major_version != "8"
+
+                - name: Install rpm package
+                  yum:
+                        name: "{{ package_name }}"
+                        state: present
+                  #when: ansible_distribution_major_version == "8"
+
+                - name: Check if package installed
+                  shell: rpm -qa | egrep "^tcsh"
+                  register: command_output
+                  #when: ansible_distribution_major_version == "8"
+                
+                - debug:
+                        msg: "{{ command_output.stdout_lines }}"

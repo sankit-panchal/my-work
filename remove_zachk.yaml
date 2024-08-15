@@ -1,0 +1,20 @@
+---
+- hosts: file
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+
+  tasks:
+          - name: Remove zachk files
+            ansible.builtin.file:
+              path: "{{ item }}"
+              state: absent
+            with_items:
+              - /etc/profile.d/zachk.csh
+              - /etc/profile.d/zachk.sh
+              - /opt/zoetis-serverbuild/zachk.csh
+              - /opt/zoetis-serverbuild/zachk.sh
+              - /opt/zoetis-serverbuild/zgic-zachk.sh
+            when: ansible_distribution_major_version != "6"
+
+

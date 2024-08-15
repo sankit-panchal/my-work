@@ -1,0 +1,55 @@
+---
+- name: Add disk to VM
+  hosts: mount
+  gather_facts: no
+  vars_files:
+          - config.yaml
+          - .secret_key
+          - linux-gc-server.yaml
+  tasks:
+          
+          - name: Get disk info of virtual machine
+            community.vmware.vmware_guest_disk_info:
+                    validate_certs: false
+                    hostname: "{{ vmware_host }}"
+                    username: "{{ vmware_user }}"
+                    password: "{{ vmware_password }}"
+                    name: "{{ inventory_hostname }}"
+                    datacenter: "{{ vmware_dc }}"
+            delegate_to: localhost
+            register: disk_info
+
+          - set_fact:
+                  disk: "{{ disk | default([]) + [{ 'datastore' : item.value.backing_datastore, 'size_kb': item.value.capacity_in_kb, 'scsi_controller': item.value.controller_bus_number, 'unit_number': item.value.unit_number }] }}"
+            with_dict: "{{ disk_info.guest_disk_info }}"
+
+          - debug:
+                  var: disk
+
+          - set_fact:
+                  next_unit_number: "{{ item.value.unit_number | int+1 }}"
+            with_dict: "{{ disk_info.guest_disk_info }}"
+
+          - debug:
+                  var: next_unit_number
+
+          - set_fact:
+                  new_disk: "{{ disk + [{ 'datastore' : item.value.backing_datastore, 'size_kb': '2097152', 'scsi_controller': 1, 'unit_number': next_unit_number }] }}"
+            with_dict: "{{ disk_info.guest_disk_info }}"
+
+          - debug:
+                  var: new_disk
+
+          - name: Add new disk to vm
+            community.vmware.vmware_guest_disk:
+                    validate_certs: false
+                    hostname: "{{ vmware_host }}"
+                    username: "{{ vmware_user }}"
+                    password: "{{ vmware_password }}"
+                    name: "{{ inventory_hostname }}"
+                    datacenter: "{{ vmware_dc }}"
+                    disk: "{{ new_disk }}"
+            delegate_to: localhost
+          
+          - debug:
+                msg: "{{ new_disk }}"

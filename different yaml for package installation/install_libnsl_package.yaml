@@ -1,0 +1,39 @@
+
+---
+        - hosts: package
+          become: yes
+          become_method: sudo
+          gather_facts: yes
+          vars_files:
+                - vars/package.yml
+                - .user_creds
+
+          tasks:
+
+                - when: ansible_distribution_major_version == "7"
+                  block:  
+                        - name: Install rpm package in 7
+                          yum:
+                                name: glibc
+                                state: present
+
+                        - name: Check if libnsl installed in 7
+                          command: ls /usr/lib64/libnsl.so.1
+                          register: command_output
+                
+                        - debug:
+                                msg: "{{ command_output.stdout_lines }}"
+
+                - when: ansible_distribution_major_version == "8"
+                  block:  
+                        - name: Install rpm package in 8
+                          yum:
+                                name: libnsl
+                                state: present
+
+                        - name: Check if libnsl installed in 8
+                          command: ls /usr/lib64/libnsl.so.2
+                          register: command_output_2
+
+                        - debug:
+                                msg: "{{ command_output_2.stdout_lines }}"

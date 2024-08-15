@@ -1,0 +1,7 @@
+---
+file_name:
+        - /etc/profile.d/zachk.csh
+        - /etc/profile.d/zachk.sh
+        - /opt/zoetis-serverbuild/zachk.csh
+        - /opt/zoetis-serverbuild/zachk.sh
+        - /opt/zoetis-serverbuild/zgic-zachk.sh

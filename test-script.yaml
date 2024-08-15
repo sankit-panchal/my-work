@@ -1,0 +1,53 @@
+
+---
+        - hosts: test
+          become: yes
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars:
+              - rhv:  ansible_distribution
+          vars_files:
+          - vars/change_no.yml
+
+          tasks:
+
+                  #          - meta: end_host
+                  #            when: ansible_distribution != "Ubuntu"
+
+            #          - name: Copy script to destination server
+            #copy:
+            #    src: ./test_script.sh
+            #    dest: /tmp/
+
+            #          - name: setting tag
+            #when: ohai_azure.metadata.compute.azEnvironment == "AzurePublicCloud"
+            #register: present
+
+                    #            shell: apt list --upgradable  | wc -l
+                    #            register: command_output
+          - when: ansible_distribution == "Ubuntu"
+            block:
+                    - name: Checking packages for update on Ubuntu
+                      shell: apt list --upgradable  | wc -l
+                      changed_when: list_updates.results | length > 0
+                      register: list_updates
+                      
+                    - name: Number of packages going to update
+                      debug:
+                              msg: "{{ list_updates.results }} packages going to update on {{ ansible_hostname }}"
+
+            #          - name: Remove script
+            #file: 
+            #    state: absent
+            #    path: /tmp/test_script.sh
+
+                    #          - debug:
+                    #                 msg: "{{ command_output.stdout_lines }}"
+
+                              #                    - debug:
+                  #                 msg: "{{ ohai_azure.metadata.compute.azEnvironment }}"
+                  #                                  msg: "{{ vars[rhv] }}"
+

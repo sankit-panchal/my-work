@@ -1,0 +1,12 @@
+
+---
+        - hosts: hpc
+          become: yes
+          gather_facts: yes
+
+          tasks:
+                - name: Get Hardware Details
+                  command: 'dmidecode -t1 | grep Manu'
+                  register: hardware_details
+                  
+                - debug: msg="{{ hardware_details.stdout_lines }}"

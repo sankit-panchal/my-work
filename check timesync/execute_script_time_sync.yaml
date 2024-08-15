@@ -1,0 +1,22 @@
+
+---
+        - hosts: azure
+          become: no
+          gather_facts: no
+
+          tasks:
+
+          - name: Sending script
+            copy:
+                    src: check_time_sync.sh
+                    dest: ~/check_time_sync.sh
+
+          - name: Execute script
+            script: check_time_sync.sh
+
+          #- name: Get output
+          #command: /bin/cat /var/tmp/timestatus
+          #register: command_output
+
+          #- debug:
+          #msg: "{{ command_output.stdout_lines }}"

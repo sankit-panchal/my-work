@@ -1,0 +1,1 @@
+MOUNT_SHARE -fstype=cifs,vers=2.1,timeout=60,noserverino,uid=username,forceuid,gid=group-name,forcegid,credentials=cifs-credsfile ://shareserver/sharename

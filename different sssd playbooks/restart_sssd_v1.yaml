@@ -1,0 +1,39 @@
+
+---
+        - hosts: sssd
+          become: yes
+          serial: 10
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+
+          tasks:
+
+          - name: Delete sssd cache file
+            block:
+            - name: Remove db file
+              file:
+                      state: absent
+                      path: /var/lib/sss/db/
+
+            - name: Create db file
+              file:
+                      path: /var/lib/sss/db
+                      state: directory
+                      owner: sssd
+                      group: sssd
+                      mode: 0700
+
+          - name: Restart sssd service
+            service:
+                    name: sssd
+                    state: restarted
+
+          - name: Get service status
+            shell: 'systemctl status sssd | grep Active'
+            register: cmnd_out
+
+          - debug:
+                  msg: "{{ cmnd_out.stdout_lines }}"

@@ -1,0 +1,46 @@
+---
+ - hosts: restart
+   become: yes
+   gather_facts: yes
+   vars_prompt:
+        - name: "ansible_sudo_pass"
+          prompt: "Sudo password"
+          private: yes
+
+   tasks:
+
+
+        - name: Gather pre check output
+          command: /mnt/scripts/pre-post-checks.sh
+          ignore_errors: no
+
+        - name: Check for reboot flag
+          stat:
+               path: "/var/tmp/rebooted"
+          register: file_data
+
+        - when: file_data.stat.exists
+          block:
+           - name: Reboot the server
+             shell: sleep 2 && /sbin/shutdown -r now
+             ignore_errors: true
+             async: 300
+             poll: 0
+             register: serverreboot
+
+        - name: Validate if server is up and able to access
+          wait_for_connection:
+              connect_timeout: 20
+              sleep: 5
+              delay: 5
+              timeout: 300
+          when: serverreboot.changed == true
+
+
+        - name: Gather Post Check Output
+          command: /mnt/scripts/pre-post-checks.sh
+          ignore_errors: no
+          register: post_check_output
+
+        - debug:
+                msg: "{{ post_check_output.stdout_lines }}"

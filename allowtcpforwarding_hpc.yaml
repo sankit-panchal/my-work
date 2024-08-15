@@ -1,0 +1,32 @@
+---
+        - hosts: hpc
+          become: yes
+          become_method: sudo
+          #gather_facts: no
+          vars_files:
+                  -.user_creds
+
+          tasks:
+                  - name: Take backup of sshd_config file
+                    copy:
+                            src: /etc/ssh/sshd_config
+                            dest: /etc/ssh/sshd_config-{{ansible_date_time.date}}
+                            remote_src: yes
+
+                  - name: Comment existing line
+                    shell: sed -i '/^AllowTcpForwarding*/s/^/#/' /etc/ssh/sshd_config
+
+                  - name: Allow tcp forwarding
+                    shell: sed -i '/^#AllowTcpForwarding*/a AllowTcpForwarding yes' /etc/ssh/sshd_config
+
+                  - name: Restart ssh service
+                    service:
+                            name: sshd
+                            state: restarted
+
+                  - name: Get output
+                    shell: grep ^AllowTcpForwarding /etc/ssh/sshd_config
+                    register: cmnd_output
+
+                  - debug:
+                          msg: "{{ cmnd_output.stdout_lines }}"

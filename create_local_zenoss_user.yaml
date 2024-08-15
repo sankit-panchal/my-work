@@ -1,0 +1,39 @@
+---
+- hosts: sssd
+  become: yes
+  serial: 10
+  gather_facts: yes
+  vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+
+  tasks:
+
+          - name: Stop service
+            service:
+                    name: sssd
+                    state: stopped
+
+          - name: Clear DB file
+            shell: 'rm -f /var/lib/sss/{db,mc}/*'
+
+          - name: Create zenoss service account
+            user:
+                    name: "username"
+                    password: "{{ 'plain password' | password_hash('sha512') }}"
+                    shell: /bin/bash
+                    comment: "This is Zenoss user"
+                    uid: 40131
+                    home: /app/username
+                    update_password: on_create
+                    state: present
+            register: new_user
+
+          - name: Start service
+            service:
+                    name: sssd
+                    state: started
+
+          - debug:
+                  var: new_user

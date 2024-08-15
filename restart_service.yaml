@@ -1,0 +1,25 @@
+
+---
+        - hosts: oracle
+          become: yes
+          gather_facts: no
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars_files:
+                - vars/service.yml
+
+          tasks:
+                - name: Restart service
+                  service:
+                        name: "{{ service_name }}"
+                        state: restarted
+
+                - name: Get service status
+                  shell: 'systemctl status {{ service_name }} | grep Active'
+                  register: cmnd_out
+
+                - debug:
+                        msg: "{{ cmnd_out.stdout_lines }}"
+

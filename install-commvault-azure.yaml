@@ -1,0 +1,42 @@
+
+---
+        - hosts: commvault
+          #          user: ifdifferentuser
+          become: yes
+          gather_facts: no
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+
+          tasks:
+
+          - name: Check for exisiting commvault package
+            stat:
+                    path: "/opt/commvault/cvpkgrm"
+            register: file_data
+
+          - name: Remove package if exist
+            command: /opt/commvault/cvpkgrm -i all
+            when: file_data.stat.exists
+
+          - name: Installing commvault agent
+            command: ./silent_install -p default.xml
+            args:
+                    chdir: /tmp/filesystem-only/   ## package already transffered to this path ##
+            register: command_output
+
+          - name: Check agent status
+            command: simpana status
+            register: smp_status
+
+#          - name: Remove script
+#            file: 
+#                state: absent
+#                path: /tmp/test_script.sh
+
+          - debug:
+                  msg:
+                  - "{{ command_output.stdout_lines[-2:] }}" ## display last 2 lines if long output ##
+                  - "{{ smp_status.stdout_lines }}"
+

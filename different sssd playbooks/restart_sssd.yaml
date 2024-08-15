@@ -1,0 +1,41 @@
+
+---
+        - hosts: sssd
+          become: yes
+          become_method: sudo
+          serial: 10
+          gather_facts: yes
+          vars_files:
+                  - .user_creds
+
+          tasks:
+
+          - name: Delete sssd cache file
+            block:
+            - name: Remove db file
+              file:
+                      state: absent
+                      path: /var/lib/sss/db/
+
+            - name: Create db file
+              file:
+                      path: /var/lib/sss/db
+                      state: directory
+                      owner: sssd
+                      group: sssd
+                      mode: 0700
+
+          - name: Restart sssd service
+            service:
+                    name: sssd
+                    state: restarted
+
+          - name: Refresh Cache
+            shell: "for i in `realm list | grep permitted-groups | awk -F: '{print $2}' | tr ', ' '\n'`;do echo 'getent group $i';getent group $i;done >/dev/null 2>&1"
+
+          - name: Get service status
+            shell: 'systemctl status sssd | grep Active'
+            register: cmnd_out
+
+          - debug:
+                  msg: "{{ cmnd_out.stdout_lines }}"

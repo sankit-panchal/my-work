@@ -1,0 +1,88 @@
+---
+ - hosts: patching
+   become: yes
+   gather_facts: yes
+   vars_prompt:
+        - name: "ansible_sudo_pass"
+          prompt: "Sudo password"
+          private: yes
+   vars_files:
+        - vars/change_no.yml
+
+   tasks:
+        - meta: end_host
+          when: ansible_distribution != "RedHat"
+
+        - name: Gather Pre Check Output
+          command: /mnt/scripts/patching_script.sh "{{ change_no }}"
+          ignore_errors: no
+
+        - name: Check for reboot flag
+          stat:
+               path: "/var/tmp/rebooted"
+          register: file_data
+
+        - when: file_data.stat.exists
+          block:
+           - name: Reboot before patching
+             shell: sleep 2 && /sbin/shutdown -r now
+             ignore_errors: true
+             async: 300
+             poll: 0
+             register: serverreboot
+
+        - name: Validate if server is up before patching
+          wait_for_connection:
+              connect_timeout: 20
+              sleep: 5
+              delay: 5
+              timeout: 600
+          when: serverreboot.changed == true
+
+        - name: Check packages for updates
+          yum:
+            list=updates
+          ignore_errors: true
+          environment:
+                  ACCEPT_EULA: "Y"
+          changed_when: yumupdates.results | length > 0
+          register: yumupdates
+
+        - name: Number of packages available for updates
+          debug: msg="{{ yumupdates.results | length }} packages available for updates on {{ ansible_hostname }}"
+
+        - when: ansible_distribution == "RedHat"
+          block:
+            - name: Install updates using yum
+              yum:
+                name: "*"
+                state: latest
+              environment:
+                  ACCEPT_EULA: "Y"
+              register: installed
+
+        - when: installed.changed == true
+          block:
+            - name: Reboot after patching
+              shell: sleep 2 && /sbin/shutdown -r now
+              ignore_errors: true
+              async: 300
+              poll: 0
+              register: serverreboot2
+
+        - name: Validate if server is up after patching
+          wait_for_connection:
+             connect_timeout: 20
+             sleep: 5
+             delay: 5
+             timeout: 300
+          when: serverreboot2.changed == true
+
+        - name: Gather Post Check Output
+          command: /mnt/scripts/patching_script.sh
+          ignore_errors: no
+          when: file_data.stat.exists
+          register: post_check_output
+
+        - debug:
+                msg: "{{ post_check_output.stdout_lines }}"

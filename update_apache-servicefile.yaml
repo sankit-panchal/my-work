@@ -1,0 +1,36 @@
+---
+        - hosts: apache
+          become: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+
+
+          tasks:
+
+          - name: Checking service file
+            stat:
+                path: "/etc/systemd/system/apache.service"
+            register: file_data
+                    
+          - when: file_data.stat.exists
+            block:
+            - name: Taking backup of service file
+              copy:
+                      src: /etc/systemd/system/apache.service
+                      dest: /etc/systemd/system/apache.service-bkp-{{ansible_date_time.date}}
+                      remote_src: yes
+
+            - name: Copying new service file
+              copy:
+                    src: /mnt/systemd-profile/apache.service
+                    dest: /etc/systemd/system/apache.service
+                    remote_src: yes
+
+            - name: Get service status
+              shell: 'systemctl status apache | grep Active'
+              register: cmnd_out
+
+            - debug:
+                  msg: "{{ cmnd_out.stdout_lines }}"

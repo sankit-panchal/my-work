@@ -1,0 +1,12 @@
+
+---
+        - hosts: all
+
+          tasks:
+
+          - name: listing tmp data from server
+            command: ls -lrth /tmp
+            register: list
+
+          - debug:
+                msg: "{{ list.stdout_lines }}"

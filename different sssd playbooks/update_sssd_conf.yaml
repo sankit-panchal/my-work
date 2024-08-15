@@ -1,0 +1,34 @@
+
+---
+        - hosts: sssd
+          become: yes
+          serial: 10
+          gather_facts: yes
+          vars_prompt:
+          - name: "ansible_sudo_pass"
+            prompt: "Sudo password"
+            private: yes
+          vars:
+                - rhv:  ansible_distribution
+
+          tasks:
+
+          - name: Take backup of sssd.conf file
+            copy:
+                src: /etc/sssd/sssd.conf
+                dest: /etc/sssd/sssd.conf-{{ansible_date_time.iso8601_basic_short}}
+                remote_src: yes
+
+          - name: Copy new sssd.conf file
+            copy:
+                    src: sssd.conf
+                    dest: /etc/sssd/
+                    mode: '0600'
+
+          - name: Update sssd.conf for HPC
+            command: chdir=/etc/sssd/ {{ item }}
+            with_items:
+                    - sed -i '/services/a [nss]\noverride_homedir = /sc/home/%u' sssd.conf
+                    - sed -i '/services/a \\' sssd.conf
+            when: inventory_hostname.startswith('kzdlsc')
+

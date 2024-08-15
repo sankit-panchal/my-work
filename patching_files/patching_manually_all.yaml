@@ -1,0 +1,68 @@
+---
+- hosts: patching
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  #  vars_prompt:
+  #- name: "ansible_sudo_pass"
+  #  prompt: "Sudo password"
+  #  private: yes
+  vars:
+  - mjv: ansible_distribution_major_version
+  vars_files:
+  - vars/change_no.yml
+  - .panchals_creds
+
+  tasks:
+
+    - name: Checking reboot flag
+      stat:
+              path: "/var/tmp/rebooted"
+      register: file_data
+
+    - when: file_data.stat.exists
+      block:
+        - name: Rebooting the server after patching
+          shell: sleep 2 && /sbin/shutdown -r now
+          ignore_errors: true
+          async: 300
+          poll: 0
+          register: serverreboot2
+          
+        - name: Validate if server is up after patching
+          wait_for_connection:
+            connect_timeout: 20
+            sleep: 5
+            delay: 5
+            timeout: 600
+          when: serverreboot2.changed == true
+    
+    - when: ansible_distribution == "Ubuntu"
+      block:
+        - name: Starting autofs service on ubuntu
+          service:
+            name: autofs.service
+            state: started
+            enabled: yes
+          when: ansible_hostname.startswith('kzd') or ansible_hostname.startswith('wsp') or ansible_hostname.startswith('svc')
+
+        - name: Pause for 5 seconds
+          pause:
+                  seconds: 5
+          when: ansible_hostname.startswith('kzd') or ansible_hostname.startswith('wsp') or ansible_hostname.startswith('svc')
+
+    - name: Removing files from azure
+      file:
+              path: /tmp/zoetis.list
+              state: absent
+      when: ansible_hostname.startswith('az') and ansible_distribution == "Ubuntu"
+
+    - when: file_data.stat.exists
+      block:   
+        - name: Gethering post patching output
+          script: patching_files/patching_script.sh
+          ignore_errors: no
+          register: post_check_output
+
+        - debug:
+            msg: "{{ post_check_output.stdout_lines }}"

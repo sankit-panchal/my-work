@@ -1,0 +1,26 @@
+
+---
+        - hosts: web
+          gather_facts: no
+
+          tasks:
+
+          - name: Execute script
+            script: getapp-version.sh
+
+          - name: Checking file stat
+            stat:
+                    path: "/var/tmp/appvrsop"
+            register: file_state
+
+          - when: file_state.stat.exists
+            block:
+                    - name: Running command
+                      command: cat /var/tmp/appvrsop
+                      register: fileoutput
+
+                    - name: Getting output
+                      lineinfile:
+                              line: "{{ fileoutput.stdout }}"
+                              path: "getapp-version-output"
+                      delegate_to: localhost
